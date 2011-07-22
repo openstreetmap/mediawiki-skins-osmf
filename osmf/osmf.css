@@ -527,15 +527,16 @@ form#editform textarea {
 #content tr th,
 #content thead th {
 	color: #888;
-	font-size: 12px;
+	/*font-size: 12px;*/
 	font-weight: bold;
 	line-height: 18px;
-	padding: 9px 24px;
+	/*padding: 9px 24px;*/
 }
+/*
 #content tr td {
 	border-top: 1px solid #e7e7e7;
 	padding: 6px 24px;
-}
+}*/
 #content tr.odd td {
 	background: #f2f7fc;
 }

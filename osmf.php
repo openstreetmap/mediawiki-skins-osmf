@@ -34,7 +34,7 @@ class SkinOSMF extends SkinTemplate {
  * @todo document
  * @ingroup Skins
  */
-class OSMFTemplate extends QuickTemplate {
+class OSMFTemplate extends BaseTemplate {
 	var $skin;
 	/**
 	 * Template filter callback for OSMF skin.
@@ -55,6 +55,8 @@ class OSMFTemplate extends QuickTemplate {
 		// Suppress warnings to prevent notices about missing indexes in $this->data
 		wfSuppressWarnings();
 
+
+		
 		$this->html( 'headelement' );
 ?><div id="wrapper" class="hfeed">
 	<div id="header">
@@ -78,7 +80,10 @@ class OSMFTemplate extends QuickTemplate {
 						<li class="page_item">
 							<a href="<?php echo $menuitem['href'] ?>"><?php echo $menuitem['text'] ?></a>
 						</li>
-						<?php endforeach ?>
+						<?php endforeach;
+						$this->data['sidebar']['MENUBAR'] = array(); //we're done with that. blank it to stop these also appearing in the side bar
+						?>
+						
 					</ul>
 				</div>
 			</div><!-- #access -->
@@ -103,63 +108,43 @@ class OSMFTemplate extends QuickTemplate {
 			
 			</div><!-- #content -->
 		</div><!-- #container -->
-		
+
+	
 		<div id="primary" class="widget-area" role="complementary">
 			<ul class="xoxo">
-						
-			<?php $sidebar = $this->data['sidebar'];
-			foreach ($sidebar as $boxName => $cont) {
-				if ( $boxName == 'SEARCH' ) {
-					$this->searchBox();
-				} elseif ( $boxName == 'LOGO' ) {
-					$this->logo();
-				} elseif ( $boxName == 'LANGUAGES' ) {
-					$this->languageBox();
-				} elseif ($boxName!='MENUBAR' && $boxName!='TOOLBOX') {
-					$this->customBox( $boxName, $cont );
-				}
-			} ?>
-			
+
+			<?php $this->renderPortals( $this->data['sidebar'] ); ?>
+				
 			</ul>
 			
 			<h3 class="widget-title">Wiki user</h3>
-			<ul class="xoxo" <?php $this->html('userlangattributes') ?>>
-					<?php foreach($this->data['personal_urls'] as $key => $item) { ?>
+			
+					<?php /*foreach($this->data['personal_urls'] as $key => $item) { ?>
 						<li id="<?php echo Sanitizer::escapeId( "pt-$key" ) ?>"<?php
 						if ($item['active']) { ?> class="active"<?php } ?>><a href="<?php
 						echo htmlspecialchars($item['href']) ?>"<?php echo $skin->tooltipAndAccesskey('pt-'.$key) ?><?php
 						if(!empty($item['class'])) { ?> class="<?php
 						echo htmlspecialchars($item['class']) ?>"<?php } ?>><?php
 						echo htmlspecialchars($item['text']) ?></a></li>
-					<?php } ?>
-            </ul>
-            
-            
+					<?php }*/ ?>
+					
+			
+			<ul<?php $this->html( 'userlangattributes' ) ?>>
+<?php			foreach( $this->getPersonalTools() as $key => $item ) {  
+	                  echo $this->makeListItem( $key, $item );    
+                        }
+ ?>
+	                </ul>
+	    
+            <!-- Page actions aren't working for some reason
 			<h3 class="widget-title">Page actions</h3>
-			<ul class="xoxo">
-			<?php
-				foreach($this->data['content_actions'] as $key => $tab) {
-					echo '
-				 <li id="' . Sanitizer::escapeId( "ca-$key" ) . '"';
-					if( $tab['class'] ) {
-						echo ' class="'.htmlspecialchars($tab['class']).'"';
-					}
-					echo '><a href="'.htmlspecialchars($tab['href']).'"';
-					# We don't want to give the watch tab an accesskey if the
-					# page is being edited, because that conflicts with the
-					# accesskey on the watch checkbox.  We also don't want to
-					# give the edit tab an accesskey, because that's fairly su-
-					# perfluous and conflicts with an accesskey (Ctrl-E) often
-					# used for editing in Safari.
-				 	if( in_array( $action, array( 'edit', 'submit' ) )
-				 	&& in_array( $key, array( 'edit', 'watch', 'unwatch' ))) {
-				 		echo $skin->tooltip( "ca-$key" );
-				 	} else {
-				 		echo $skin->tooltipAndAccesskey( "ca-$key" );
-				 	}
-				 	echo '>'.htmlspecialchars($tab['text']).'</a></li>';
-				} ?>
-			 </ul>
+			-->
+			
+			<ul <?php $this->html( 'userlangattributes' ) ?>>
+			<?php foreach ( $this->data['action_urls'] as $link ): ?>
+				<li<?php echo $link['attributes'] ?>><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" <?php echo $link['key'] ?>><?php echo htmlspecialchars( $link['text'] ) ?></a></li>
+			<?php endforeach; ?>
+		</ul>
 			
 		</div><!-- #primary .widget-area -->
 
@@ -342,6 +327,93 @@ class OSMFTemplate extends QuickTemplate {
 		echo '</li>';
 
 	} // customBox()
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * Render a series of portals
+	 *
+	 * @param $portals array
+	 */
+	protected function renderPortals( $portals ) {
+		// Force the rendering of the following portals
+		if ( !isset( $portals['SEARCH'] ) ) {
+			$portals['SEARCH'] = true;
+		}
+		if ( !isset( $portals['TOOLBOX'] ) ) {
+			$portals['TOOLBOX'] = true;
+		}
+		if ( !isset( $portals['LANGUAGES'] ) ) {
+			$portals['LANGUAGES'] = true;
+		}
+		// Render portals
+		foreach ( $portals as $name => $content ) {
+			if ( $content === false )
+				continue;
+
+			echo "\n<!-- {$name} -->\n";
+			switch( $name ) {
+				case 'SEARCH':
+					break;
+				case 'TOOLBOX':
+					$this->renderPortal( 'tb', $this->getToolbox(), 'toolbox', 'SkinTemplateToolboxEnd' );
+					break;
+				case 'LANGUAGES':
+					if ( $this->data['language_urls'] ) {
+						$this->renderPortal( 'lang', $this->data['language_urls'], 'otherlanguages' );
+					}
+					break;
+				default:
+					$this->renderPortal( $name, $content );
+				break;
+			}
+			echo "\n<!-- /{$name} -->\n";
+		}
+	}
+
+	/**
+	 * @param $name string
+	 * @param $content array
+	 * @param $msg null|string
+	 * @param $hook null|string|array
+	 */
+	protected function renderPortal( $name, $content, $msg = null, $hook = null ) {
+		if ( $msg === null ) {
+			$msg = $name;
+		}
+		?>
+<div class="portal" id='<?php echo Sanitizer::escapeId( "p-$name" ) ?>'<?php echo Linker::tooltip( 'p-' . $name ) ?>>
+	<h5<?php $this->html( 'userlangattributes' ) ?>><?php $msgObj = wfMessage( $msg ); echo htmlspecialchars( $msgObj->exists() ? $msgObj->text() : $msg ); ?></h5>
+	<div class="body">
+<?php
+		if ( is_array( $content ) ): ?>
+		<ul>
+<?php
+			foreach( $content as $key => $val ): ?>
+			<?php echo $this->makeListItem( $key, $val ); ?>
+
+<?php
+			endforeach;
+			if ( $hook !== null ) {
+				wfRunHooks( $hook, array( &$this, true ) );
+			}
+			?>
+		</ul>
+<?php
+		else: ?>
+		<?php echo $content; /* Allow raw HTML block to be defined by extensions */ ?>
+<?php
+		endif; ?>
+	</div>
+</div>
+<?php
+	}
+	
+	
 	
 } // end of class
 

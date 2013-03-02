@@ -216,7 +216,7 @@ class OSMFTemplate extends BaseTemplate {
  ?>
 	                </ul>
 	    
-            		<h3 class="widget-title">Page actions</h3>
+            		<?php if ( count( $this->data['view_urls'] ) > 0 ) { ?><h3 class="widget-title">Page actions</h3><?php } ?>
             		
             	        <?php $this->renderNavigation( array( 'VIEWS'/*, 'ACTIONS', 'SEARCH'*/ ) ); ?>
 	

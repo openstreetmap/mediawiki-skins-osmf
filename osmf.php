@@ -23,9 +23,9 @@ class SkinOSMF extends SkinTemplate {
 
 		parent::setupSkinUserCss( $out );
 
-		$out->addStyle( 'osmf/assets/osmf.css', 'screen' );
-		$out->addStyle( 'osmf/assets/rtl.css',       'screen', '', 'rtl' );
-		$out->addStyle( 'osmf/assets/main.css',      'screen' );
+		$out->addStyle( 'osmf/osmf.css', 'screen' );
+		$out->addStyle( 'osmf/rtl.css',       'screen', '', 'rtl' );
+		$out->addStyle( 'osmf/main.css',      'screen' );
 
 	}
 }
@@ -61,7 +61,7 @@ class OSMFTemplate extends BaseTemplate {
 ?><div id="wrapper" class="hfeed">
 	<div id="header">
 	    <div id="logo">
-	       <a href="http://osmfoundation.org" title="osmfoundation.org homepage"><img src="<?php echo $wgStylePath ?>/osmf/assets/osmf-logo.png" width="135" height="135" alt="OSMF logo" id="logo" border="0"/></a>
+	       <a href="http://osmfoundation.org" title="osmfoundation.org homepage"><img src="<?php echo $wgStylePath ?>/common/osmf-logo.png" width="135" height="135" alt="OSMF logo" id="logo" border="0"/></a>
 	    </div>
 		<div id="masthead">
 			<div id="branding" role="banner">

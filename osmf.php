@@ -1,12 +1,24 @@
 <?php
 /**
- * OSMF skin adapted from the one done by Sam Wilson which is a mediawiki
- * skin done in the style of the TwentyTen Wordpress theme.
+ * OSMF (osmfoundation.org) MediaWiki skin
+ * 
+ * Starting from a 'TwentyTen' skin design by Sam Wilson
+ * http://github.com/samwilson/mediawiki_twentyten
+ * A mediawiki skin done in the style of the TwentyTen Wordpress theme.
  *
- * @link http://github.com/samwilson/mediawiki_twentyten
+ * ...Harry Wood then customised that at the same time as customising a
+ * wordpress theme, bringing the two into alignment, in the green menu
+ * osmf style.
+ *
+ * Since then Harry's further fixed up this skin to work with MediaWiki
+ * version 1.20.2, which involved copying chunks from the Vector skin code
+ * (new functions renderPortals and renderNavigation)
+ * 
  * @ingroup Skins
  */
-if( !defined( 'MEDIAWIKI' ) ) die( -1 );
+if( !defined( 'MEDIAWIKI' ) ) {
+	die( -1 );
+}
 
 /**
  * Inherit main code from SkinTemplate, set the CSS and template filter.
@@ -15,50 +27,128 @@ if( !defined( 'MEDIAWIKI' ) ) die( -1 );
  */
 class SkinOSMF extends SkinTemplate {
 
+	protected static $bodyClasses = array( 'vector-animateLayout' );
+
 	var $skinname = 'osmf', $stylename = 'osmf',
 		$template = 'OSMFTemplate', $useHeadElement = true;
+	/**
+	 * Initializes output page and sets up skin-specific parameters
+	 * @param $out OutputPage object to initialize
+	 */
+	 public function initPage( OutputPage $out ) {
+		global $wgLocalStylePath;
 
+		parent::initPage( $out );
+
+		// Append CSS which includes IE only behavior fixes for hover support -
+		// this is better than including this in a CSS fille since it doesn't
+		// wait for the CSS file to load before fetching the HTC file.
+		$min = $this->getRequest()->getFuzzyBool( 'debug' ) ? '' : '.min';
+		$out->addHeadItem( 'csshover',
+			'<!--[if lt IE 7]><style type="text/css">body{behavior:url("' .
+				htmlspecialchars( $wgLocalStylePath ) .
+				"/{$this->stylename}/csshover{$min}.htc\")}</style><![endif]-->"
+		);
+
+		$out->addModuleScripts( 'skins.vector' );
+	}
+	 
+	/**
+	 * Load skin and user CSS files in the correct order
+	 * fixes bug 22916
+	 * @param $out OutputPage object
+	 */
 	function setupSkinUserCss( OutputPage $out ) {
-		global $wgHandheldStyle;
-
 		parent::setupSkinUserCss( $out );
-
 		$out->addStyle( 'osmf/osmf.css', 'screen' );
-		$out->addStyle( 'osmf/rtl.css',       'screen', '', 'rtl' );
-		$out->addStyle( 'osmf/main.css',      'screen' );
-
+		$out->addStyle( 'osmf/rtl.css',  'screen', '', 'rtl' );
+		$out->addStyle( 'osmf/main.css', 'screen' );
+	}
+	
+	/**
+	 * Adds classes to the body element.
+	 * 
+	 * @param $out OutputPage object
+	 * @param &$bodyAttrs Array of attributes that will be set on the body element
+	 */
+	function addToBodyAttributes( $out, &$bodyAttrs ) {
+		if ( isset( $bodyAttrs['class'] ) && strlen( $bodyAttrs['class'] ) > 0 ) {
+			$bodyAttrs['class'] .= ' ' . implode( ' ', static::$bodyClasses );
+		} else {
+			$bodyAttrs['class'] = implode( ' ', static::$bodyClasses );
+		}
 	}
 }
 
 /**
- * @todo document
+ * QuickTemplate class for OSMF skin
  * @ingroup Skins
  */
 class OSMFTemplate extends BaseTemplate {
-	var $skin;
+	
+	/* Functions */
+
 	/**
-	 * Template filter callback for OSMF skin.
-	 * Takes an associative array of data set from a SkinTemplate-based
-	 * class, and a wrapper for MediaWiki's localization database, and
-	 * outputs a formatted page.
-	 *
-	 * @access private
+	 * Outputs the entire contents of the (X)HTML page
 	 */
-	function execute() {
-		global $wgRequest, $wgSitename, $wgStylePath;
-
-		$this->skin = $skin = $this->data['skin'];
-		$action = $wgRequest->getText( 'action' );
+	public function execute() {
+		global $wgVectorUseIconWatch, $wgStylePath;
 		
-		$this->set( 'sitename', $wgSitename );
-		
-		// Suppress warnings to prevent notices about missing indexes in $this->data
-		wfSuppressWarnings();
+		// Build additional attributes for navigation urls
+		$nav = $this->data['content_navigation'];
 
+		if ( $wgVectorUseIconWatch ) {
+			$mode = $this->getSkin()->getUser()->isWatched( $this->getSkin()->getRelevantTitle() ) ? 'unwatch' : 'watch';
+			if ( isset( $nav['actions'][$mode] ) ) {
+				$nav['views'][$mode] = $nav['actions'][$mode];
+				$nav['views'][$mode]['class'] = rtrim( 'icon ' . $nav['views'][$mode]['class'], ' ' );
+				$nav['views'][$mode]['primary'] = true;
+				unset( $nav['actions'][$mode] );
+			}
+		}
 
-		
+		$xmlID = '';
+		foreach ( $nav as $section => $links ) {
+			foreach ( $links as $key => $link ) {
+				if ( $section == 'views' && !( isset( $link['primary'] ) && $link['primary'] ) ) {
+					$link['class'] = rtrim( 'collapsible ' . $link['class'], ' ' );
+				}
+
+				$xmlID = isset( $link['id'] ) ? $link['id'] : 'ca-' . $xmlID;
+				$nav[$section][$key]['attributes'] =
+					' id="' . Sanitizer::escapeId( $xmlID ) . '"';
+				if ( $link['class'] ) {
+					$nav[$section][$key]['attributes'] .=
+						' class="' . htmlspecialchars( $link['class'] ) . '"';
+					unset( $nav[$section][$key]['class'] );
+				}
+				if ( isset( $link['tooltiponly'] ) && $link['tooltiponly'] ) {
+					$nav[$section][$key]['key'] =
+						Linker::tooltip( $xmlID );
+				} else {
+					$nav[$section][$key]['key'] =
+						Xml::expandAttributes( Linker::tooltipAndAccesskeyAttribs( $xmlID ) );
+				}
+			}
+		}
+		$this->data['namespace_urls'] = $nav['namespaces'];
+		$this->data['view_urls']      = $nav['views'];
+		$this->data['action_urls']    = $nav['actions'];
+		$this->data['variant_urls']   = $nav['variants'];
+
+		// Reverse horizontally rendered navigation elements
+		if ( $this->data['rtl'] ) {
+			$this->data['view_urls'] =
+				array_reverse( $this->data['view_urls'] );
+			$this->data['namespace_urls'] =
+				array_reverse( $this->data['namespace_urls'] );
+			$this->data['personal_urls'] =
+				array_reverse( $this->data['personal_urls'] );
+		}
+		// Output HTML Page
 		$this->html( 'headelement' );
-?><div id="wrapper" class="hfeed">
+?>
+<div id="wrapper" class="hfeed">
 	<div id="header">
 	    <div id="logo">
 	       <a href="http://osmfoundation.org" title="osmfoundation.org homepage"><img src="<?php echo $wgStylePath ?>/osmf/osmf-logo.png" width="135" height="135" alt="OSMF logo" id="logo" border="0"/></a>
@@ -119,16 +209,6 @@ class OSMFTemplate extends BaseTemplate {
 			
 			<h3 class="widget-title">Wiki user</h3>
 			
-					<?php /*foreach($this->data['personal_urls'] as $key => $item) { ?>
-						<li id="<?php echo Sanitizer::escapeId( "pt-$key" ) ?>"<?php
-						if ($item['active']) { ?> class="active"<?php } ?>><a href="<?php
-						echo htmlspecialchars($item['href']) ?>"<?php echo $skin->tooltipAndAccesskey('pt-'.$key) ?><?php
-						if(!empty($item['class'])) { ?> class="<?php
-						echo htmlspecialchars($item['class']) ?>"<?php } ?>><?php
-						echo htmlspecialchars($item['text']) ?></a></li>
-					<?php }*/ ?>
-					
-			
 			<ul<?php $this->html( 'userlangattributes' ) ?>>
 <?php			foreach( $this->getPersonalTools() as $key => $item ) {  
 	                  echo $this->makeListItem( $key, $item );    
@@ -136,10 +216,11 @@ class OSMFTemplate extends BaseTemplate {
  ?>
 	                </ul>
 	    
-            <!-- Page actions aren't working for some reason
-			<h3 class="widget-title">Page actions</h3>
-			-->
-			
+            		<h3 class="widget-title">Page actions</h3>
+            		
+            	        <?php $this->renderNavigation( array( 'VIEWS'/*, 'ACTIONS', 'SEARCH'*/ ) ); ?>
+	
+            		
 			<ul <?php $this->html( 'userlangattributes' ) ?>>
 			<?php foreach ( $this->data['action_urls'] as $link ): ?>
 				<li<?php echo $link['attributes'] ?>><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" <?php echo $link['key'] ?>><?php echo htmlspecialchars( $link['text'] ) ?></a></li>
@@ -367,6 +448,10 @@ class OSMFTemplate extends BaseTemplate {
 						$this->renderPortal( 'lang', $this->data['language_urls'], 'otherlanguages' );
 					}
 					break;
+					
+				case 'MENUBAR':
+					//do nothing
+					break;
 				default:
 					$this->renderPortal( $name, $content );
 				break;
@@ -387,7 +472,7 @@ class OSMFTemplate extends BaseTemplate {
 		}
 		?>
 <div class="portal" id='<?php echo Sanitizer::escapeId( "p-$name" ) ?>'<?php echo Linker::tooltip( 'p-' . $name ) ?>>
-	<h5<?php $this->html( 'userlangattributes' ) ?>><?php $msgObj = wfMessage( $msg ); echo htmlspecialchars( $msgObj->exists() ? $msgObj->text() : $msg ); ?></h5>
+	<h3 class="widget-title" <?php $this->html( 'userlangattributes' ) ?>><?php $msgObj = wfMessage( $msg ); echo htmlspecialchars( $msgObj->exists() ? $msgObj->text() : $msg ); ?></h3>
 	<div class="body">
 <?php
 		if ( is_array( $content ) ): ?>
@@ -414,6 +499,137 @@ class OSMFTemplate extends BaseTemplate {
 	}
 	
 	
+	
+	/**
+	 * Render one or more navigations elements by name, automatically reveresed
+	 * when UI is in RTL mode
+	 *
+	 * @param $elements array
+	 */
+	protected function renderNavigation( $elements ) {
+		global $wgVectorUseSimpleSearch;
+
+		// If only one element was given, wrap it in an array, allowing more
+		// flexible arguments
+		if ( !is_array( $elements ) ) {
+			$elements = array( $elements );
+		// If there's a series of elements, reverse them when in RTL mode
+		} elseif ( $this->data['rtl'] ) {
+			$elements = array_reverse( $elements );
+		}
+		// Render elements
+		foreach ( $elements as $name => $element ) {
+			echo "\n<!-- {$name} -->\n";
+			switch ( $element ) {
+				case 'NAMESPACES':
+?>
+<div id="p-namespaces" class="vectorTabs<?php if ( count( $this->data['namespace_urls'] ) == 0 ) echo ' emptyPortlet'; ?>">
+	<h3 class="widget-title"><?php $this->msg( 'namespaces' ) ?></h3>
+	<ul<?php $this->html( 'userlangattributes' ) ?>>
+		<?php foreach ( $this->data['namespace_urls'] as $link ): ?>
+			<li <?php echo $link['attributes'] ?>><span><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" <?php echo $link['key'] ?>><?php echo htmlspecialchars( $link['text'] ) ?></a></span></li>
+		<?php endforeach; ?>
+	</ul>
+</div>
+<?php
+				break;
+				case 'VARIANTS':
+?>
+<div id="p-variants" class="vectorMenu<?php if ( count( $this->data['variant_urls'] ) == 0 ) echo ' emptyPortlet'; ?>">
+	<h4>
+	<?php foreach ( $this->data['variant_urls'] as $link ): ?>
+		<?php if ( stripos( $link['attributes'], 'selected' ) !== false ): ?>
+			<?php echo htmlspecialchars( $link['text'] ) ?>
+		<?php endif; ?>
+	<?php endforeach; ?>
+	</h4>
+	<h3 class="widget-title"><span><?php $this->msg( 'variants' ) ?></span><a href="#"></a></h3>
+	<div class="menu">
+		<ul>
+			<?php foreach ( $this->data['variant_urls'] as $link ): ?>
+				<li<?php echo $link['attributes'] ?>><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" lang="<?php echo htmlspecialchars( $link['lang'] ) ?>" hreflang="<?php echo htmlspecialchars( $link['hreflang'] ) ?>" <?php echo $link['key'] ?>><?php echo htmlspecialchars( $link['text'] ) ?></a></li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
+</div>
+<?php
+				break;
+				case 'VIEWS':
+?>
+<div id="p-views" class="vectorTabs<?php if ( count( $this->data['view_urls'] ) == 0 ) { echo ' emptyPortlet'; } ?>">
+	<!--<h3 class="widget-title"><?php $this->msg('views') ?></h3>-->
+	<ul<?php $this->html('userlangattributes') ?>>
+		<?php foreach ( $this->data['view_urls'] as $link ): ?>
+			<li<?php echo $link['attributes'] ?>><span><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" <?php echo $link['key'] ?>><?php
+				// $link['text'] can be undefined - bug 27764
+				if ( array_key_exists( 'text', $link ) ) {
+					echo array_key_exists( 'img', $link ) ?  '<img src="' . $link['img'] . '" alt="' . $link['text'] . '" />' : htmlspecialchars( $link['text'] );
+				}
+				?></a></span></li>
+		<?php endforeach; ?>
+	</ul>
+</div>
+<?php
+				break;
+				case 'ACTIONS':
+?>
+<div id="p-cactions" class="vectorMenu<?php if ( count( $this->data['action_urls'] ) == 0 ) echo ' emptyPortlet'; ?>">
+	<h3 class="widget-title"><span><?php $this->msg( 'actions' ) ?></span><a href="#"></a></h3>
+	<div class="menu">
+		<ul<?php $this->html( 'userlangattributes' ) ?>>
+			<?php foreach ( $this->data['action_urls'] as $link ): ?>
+				<li<?php echo $link['attributes'] ?>><a href="<?php echo htmlspecialchars( $link['href'] ) ?>" <?php echo $link['key'] ?>><?php echo htmlspecialchars( $link['text'] ) ?></a></li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
+</div>
+<?php
+				break;
+				case 'PERSONAL':
+?>
+<div id="p-personal" class="<?php if ( count( $this->data['personal_urls'] ) == 0 ) echo ' emptyPortlet'; ?>">
+	<h3 class="widget-title"><?php $this->msg( 'personaltools' ) ?></h3>
+	<ul<?php $this->html( 'userlangattributes' ) ?>>
+<?php			foreach( $this->getPersonalTools() as $key => $item ) { ?>
+		<?php echo $this->makeListItem( $key, $item ); ?>
+
+<?php			} ?>
+	</ul>
+</div>
+<?php
+				break;
+				case 'SEARCH':
+?>
+<div id="p-search">
+	<h3 class="widget-title"<?php $this->html( 'userlangattributes' ) ?>><label for="searchInput"><?php $this->msg( 'search' ) ?></label></h3>
+	<form action="<?php $this->text( 'wgScript' ) ?>" id="searchform">
+		<?php if ( $wgVectorUseSimpleSearch && $this->getSkin()->getUser()->getOption( 'vector-simplesearch' ) ): ?>
+		<div id="simpleSearch">
+			<?php if ( $this->data['rtl'] ): ?>
+			<?php echo $this->makeSearchButton( 'image', array( 'id' => 'searchButton', 'src' => $this->getSkin()->getSkinStylePath( 'images/search-rtl.png' ), 'width' => '12', 'height' => '13' ) ); ?>
+			<?php endif; ?>
+			<?php echo $this->makeSearchInput( array( 'id' => 'searchInput', 'type' => 'text' ) ); ?>
+			<?php if ( !$this->data['rtl'] ): ?>
+			<?php echo $this->makeSearchButton( 'image', array( 'id' => 'searchButton', 'src' => $this->getSkin()->getSkinStylePath( 'images/search-ltr.png' ), 'width' => '12', 'height' => '13' ) ); ?>
+			<?php endif; ?>
+		<?php else: ?>
+		<div>
+			<?php echo $this->makeSearchInput( array( 'id' => 'searchInput' ) ); ?>
+			<?php echo $this->makeSearchButton( 'go', array( 'id' => 'searchGoButton', 'class' => 'searchButton' ) ); ?>
+			<?php echo $this->makeSearchButton( 'fulltext', array( 'id' => 'mw-searchButton', 'class' => 'searchButton' ) ); ?>
+		<?php endif; ?>
+			<input type='hidden' name="title" value="<?php $this->text( 'searchtitle' ) ?>"/>
+		</div>
+	</form>
+</div>
+<?php
+
+				break;
+			}
+			echo "\n<!-- /{$name} -->\n";
+		}
+	}
+
 	
 } // end of class
 

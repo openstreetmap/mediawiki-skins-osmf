@@ -20,6 +20,9 @@ if( !defined( 'MEDIAWIKI' ) ) {
 	die( -1 );
 }
 
+// Register skin
+$GLOBALS['wgValidSkinNames']['osmf'] = 'OSMF';
+
 /**
  * Inherit main code from SkinTemplate, set the CSS and template filter.
  * @todo document
